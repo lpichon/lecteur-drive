@@ -619,7 +619,7 @@
 
       let nextUrl = (() => {
         const u = new URL(basePath);
-        u.searchParams.set("$select", "id,name,size,file,folder,@microsoft.graph.downloadUrl");
+        u.searchParams.set("$select", "id,name,size,file,folder,@microsoft.graph.downloadUrl,@content.downloadUrl");
         u.searchParams.set("$top", "200");
         return u.toString();
       })();
@@ -741,7 +741,7 @@
   async function playFile(index){
     const file = filteredFiles[index];
     if(!file) return;
-    const downloadUrl = file["@microsoft.graph.downloadUrl"];
+    const downloadUrl = file["@microsoft.graph.downloadUrl"] || file["@content.downloadUrl"];
     if(!downloadUrl){
       showMessage("Ce fichier n'a pas fourni de lien de lecture, réessaie.", "error");
       return;
