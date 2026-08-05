@@ -450,7 +450,7 @@
 
 <audio id="audioEl" crossorigin="anonymous"></audio>
 
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -531,7 +531,8 @@
       },
       cache: { cacheLocation: "localStorage" }
     });
-    await msalInstance.initialize();
+    // Note : contrairement à MSAL v3, la v2 n'a pas de méthode
+    // initialize() asynchrone à appeler après la construction.
   }
 
   async function getToken(interactive){
