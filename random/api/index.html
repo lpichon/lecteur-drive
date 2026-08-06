@@ -29,7 +29,7 @@
             border-radius: 12px;
             padding: 24px;
             width: 100%;
-            max-width: 600px;
+            max-width: 650px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
 
@@ -90,31 +90,37 @@
 
     <div class="container">
         <h1>Résultat JSON</h1>
-        <p class="subtitle">Paramètres GET détectés depuis l'URL</p>
+        <p class="subtitle">Réponse générée à partir des paramètres URL (ou des valeurs par défaut)</p>
         
         <pre id="json-output">Génération en cours...</pre>
 
         <div class="examples">
-            <h2>Tester avec différents paramètres GET :</h2>
-            <a href="?min=true&maj=true&longeur=12">?min=true&maj=true&longeur=12</a><br>
-            <a href="?min=true&maj=true&chiffre=true&longeur=16">?min=true&maj=true&chiffre=true&longeur=16</a><br>
-            <a href="?maj=true&longeur=8">?maj=true&longeur=8</a>
+            <h2>Tester les URL :</h2>
+            <a href="?">URL sans paramètres (applique les valeurs par défaut : 20 car., min, maj, chiffre)</a><br>
+            <a href="?longeur=12">?longeur=12 (override la longueur à 12)</a><br>
+            <a href="?chiffre=false">?chiffre=false (désactive les chiffres)</a>
         </div>
     </div>
 
     <script>
         function generatePassword() {
-            // Lecture des paramètres GET
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Parsing des options (supporte 'longeur' et 'longueur')
+            // Fonction utilitaire pour lire un booléen avec une valeur par défaut
+            const getBoolParam = (paramName, defaultValue) => {
+                if (!urlParams.has(paramName)) return defaultValue;
+                return urlParams.get(paramName) === 'true';
+            };
+
+            // 1. Valeur par défaut de la longueur : 20
             const lengthParam = urlParams.get('longeur') || urlParams.get('longueur');
-            const length = parseInt(lengthParam, 10) || 12;
-            
-            const useMin = urlParams.get('min') === 'true';
-            const useMaj = urlParams.get('maj') === 'true';
-            const useChiffre = urlParams.get('chiffre') === 'true' || urlParams.get('num') === 'true';
-            const useSpecial = urlParams.get('special') === 'true';
+            const length = parseInt(lengthParam, 10) || 20;
+
+            // 2. Valeurs par défaut : min=true, maj=true, chiffre=true
+            const useMin = getBoolParam('min', true);
+            const useMaj = getBoolParam('maj', true);
+            const useChiffre = getBoolParam('chiffre', true);
+            const useSpecial = getBoolParam('special', false);
 
             // Jeux de caractères
             const charSets = {
@@ -133,11 +139,9 @@
             let password = '';
             let error = null;
 
-            // Vérification si au moins une option est activée
             if (availableChars.length === 0) {
-                error = "Aucun jeu de caractères sélectionné. Spécifiez au moins un paramètre valide (ex: min=true, maj=true).";
+                error = "Aucun jeu de caractères disponible.";
             } else {
-                // Génération sécurisée du mot de passe
                 const array = new Uint32Array(length);
                 window.crypto.getRandomValues(array);
                 for (let i = 0; i < length; i++) {
@@ -145,7 +149,7 @@
                 }
             }
 
-            // Structure de la réponse JSON
+            // Réponse JSON
             const responseData = error ? {
                 status: "error",
                 message: error
@@ -161,11 +165,9 @@
                 }
             };
 
-            // Affichage formaté en JSON
             document.getElementById('json-output').textContent = JSON.stringify(responseData, null, 2);
         }
 
-        // Exécution au chargement de la page
         generatePassword();
     </script>
 </body>
