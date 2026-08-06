@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <!--
-  LECTEUR AUDIO POUR GOOGLE DRIVE — fichier autonome (HTML + CSS + JS)
+  LECTEUR AUDIO POUR ONEDRIVE — fichier autonome (HTML + CSS + JS)
   ======================================================================
-  AVANT DE L'UTILISER, il faut créer un identifiant OAuth Google :
+  AVANT DE L'UTILISER, il faut enregistrer une application dans Azure :
 
-  1. Va sur https://console.cloud.google.com/ et crée un projet (ou utilise
-     un projet existant).
-  2. Dans "API et services > Bibliothèque", active "Google Drive API".
-  3. Dans "API et services > Écran de consentement OAuth" :
-     - Type "Externe" (sauf si tu as un Google Workspace)
-     - Renseigne un nom d'appli, ton e-mail, et ajoute-toi comme
-       "utilisateur test" si l'appli reste en mode "Test".
-  4. Dans "API et services > Identifiants" > "Créer des identifiants" >
-     "ID client OAuth" :
-     - Type d'application : "Application Web"
-     - Dans "Origines JavaScript autorisées", ajoute l'URL depuis laquelle
-       tu vas ouvrir ce fichier (ex: http://localhost:5500 pour un test
-       local, ou https://tonpseudo.github.io si tu l'héberges sur
-       GitHub Pages). file:// ne fonctionne PAS, il faut un vrai serveur
-       (même local).
-  5. Copie le "Client ID" généré (il ressemble à
-     123456789-abc...apps.googleusercontent.com) et colle-le dans le champ
-     de configuration en bas de la page une fois le fichier ouvert.
+  1. Va sur https://entra.microsoft.com (ou https://portal.azure.com,
+     rubrique "Azure Active Directory") avec ton compte Microsoft.
+  2. Menu "App registrations" (Inscriptions d'applications) → "New
+     registration" :
+     - Nom : ce que tu veux (ex: "Lecteur OneDrive")
+     - "Supported account types" : choisis "Accounts in any organizational
+       directory and personal Microsoft accounts" pour que ça marche avec
+       un compte OneDrive personnel ET/OU professionnel.
+     - "Redirect URI" : choisis la plateforme "Single-page application
+       (SPA)" et renseigne l'URL exacte depuis laquelle tu vas ouvrir ce
+       fichier (ex: https://tonpseudo.github.io/lecteur-onedrive.html).
+       file:// ne fonctionne PAS, il faut un vrai serveur (même local,
+       ex: http://localhost:5500/lecteur-onedrive.html).
+  3. Une fois créée, copie l'"Application (client) ID" affiché sur la
+     page "Overview" (aperçu) de l'inscription.
+  4. Menu "API permissions" → "Add a permission" → "Microsoft Graph" →
+     "Delegated permissions" → cherche et coche "Files.Read" → "Add
+     permissions".
+  5. Colle le Client ID copié à l'étape 3 dans le champ de configuration
+     en bas de la page une fois le fichier ouvert.
 
-  Ce fichier ne contient aucune clé secrète et peut être hébergé
-  publiquement : le Client ID seul ne donne accès à rien sans que
-  l'utilisateur se connecte lui-même avec son propre compte Google.
+  Contrairement à Google, il n'y a pas de mode "test" limité à quelques
+  comptes : une fois l'inscription créée, elle fonctionne immédiatement
+  pour n'importe quel compte Microsoft qui s'y connecte. Ce fichier ne
+  contient aucune clé secrète et peut être hébergé publiquement.
 -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lecteur — Google Drive</title>
+<title>Lecteur — OneDrive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -207,21 +210,6 @@
   .folder-icon{color:var(--reel);flex-shrink:0;font-size:14px;width:26px;text-align:right;}
   .folder-name{flex:1;font-size:14px;}
   .folder-chevron{color:var(--text-dim);flex-shrink:0;}
-
-  .file-row{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    padding:11px 10px;
-    border-bottom:1px solid var(--line);
-    border-radius:6px;
-  }
-  .file-row:hover{background:var(--panel);}
-  .dl-btn{
-    padding:6px 12px;
-    font-size:12px;
-    flex-shrink:0;
-  }
 
   /* --- Track list --- */
   .empty{
@@ -407,7 +395,7 @@
 <body>
 
 <header>
-  <h1>Ta discothèque <span>Drive</span></h1>
+  <h1>Ta discothèque <span>OneDrive</span></h1>
   <div class="status">
     <span class="dot" id="statusDot"></span>
     <span id="statusText">non connecté</span>
@@ -418,9 +406,9 @@
 
   <section class="config" id="configPanel">
     <h2>Configuration</h2>
-    <p>Colle ici le Client ID OAuth créé depuis Google Cloud Console (voir les instructions en commentaire au tout début du fichier source). Il est mémorisé dans ce navigateur pour la prochaine fois.</p>
+    <p>Colle ici l'Application (client) ID créé depuis Azure / Microsoft Entra (voir les instructions en commentaire au tout début du fichier source). Il est mémorisé dans ce navigateur pour la prochaine fois.</p>
     <div class="config-row">
-      <input type="text" id="clientIdInput" placeholder="xxxxxxxx-xxxx.apps.googleusercontent.com">
+      <input type="text" id="clientIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
       <button id="connectBtn">Se connecter</button>
       <button class="ghost" id="disconnectBtn" style="display:none;">Se déconnecter</button>
     </div>
@@ -460,26 +448,25 @@
   <input type="range" class="volume" id="volumeBar" min="0" max="100" value="80" title="Volume">
 </div>
 
-<audio id="audioEl"></audio>
+<audio id="audioEl" crossorigin="anonymous"></audio>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script>
 (function(){
   "use strict";
 
-  const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+  const SCOPES = ["Files.Read"];
 
   // ---- state ----
-  let clientId = localStorage.getItem("drivePlayerClientId") || "";
-  let tokenClient = null;
+  let clientId = localStorage.getItem("onedrivePlayerClientId") || "";
+  let msalInstance = null;
   let accessToken = null;
   let allFiles = [];
   let filteredFiles = [];
   let currentFileId = null;
   let currentObjectUrl = null;
   let currentFolders = [];
-  let currentKdbxFiles = [];
-  let folderStack = [{ id: "root", name: "Mon Drive" }];
+  let folderStack = [{ id: "root", name: "OneDrive" }];
 
   // ---- dom refs ----
   const $ = (id) => document.getElementById(id);
@@ -528,45 +515,76 @@
     const s = Math.floor(sec%60).toString().padStart(2,"0");
     return `${m}:${s}`;
   }
-
-  // ---- auth ----
-  function initTokenClient(){
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPE,
-      callback: (resp) => {
-        if(resp.error){
-          showMessage("Connexion refusée : " + resp.error, "error");
-          return;
-        }
-        accessToken = resp.access_token;
-        onConnected();
-      }
-    });
+  function escapeHtml(str){
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
-  connectBtn.addEventListener("click", () => {
+  // ---- auth (MSAL.js) ----
+  async function ensureMsal(){
+    if(msalInstance) return;
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: clientId,
+        authority: "https://login.microsoftonline.com/common",
+        redirectUri: window.location.href.split("#")[0]
+      },
+      cache: { cacheLocation: "localStorage" }
+    });
+    // Note : contrairement à MSAL v3, la v2 n'a pas de méthode
+    // initialize() asynchrone à appeler après la construction.
+  }
+
+  async function getToken(interactive){
+    const account = msalInstance.getActiveAccount();
+    if(!account) throw new Error("Aucun compte actif");
+    try{
+      const res = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account });
+      accessToken = res.accessToken;
+      return accessToken;
+    }catch(err){
+      if(!interactive) throw err;
+      const res = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
+      accessToken = res.accessToken;
+      return accessToken;
+    }
+  }
+
+  connectBtn.addEventListener("click", async () => {
     clientId = clientIdInput.value.trim();
     if(!clientId){
-      showMessage("Merci de renseigner un Client ID avant de te connecter.", "error");
+      showMessage("Merci de renseigner un Application (client) ID avant de te connecter.", "error");
       return;
     }
-    localStorage.setItem("drivePlayerClientId", clientId);
+    localStorage.setItem("onedrivePlayerClientId", clientId);
     clearMessage();
-    initTokenClient();
-    tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+    connectBtn.disabled = true;
+    try{
+      await ensureMsal();
+      const result = await msalInstance.loginPopup({ scopes: SCOPES });
+      msalInstance.setActiveAccount(result.account);
+      accessToken = result.accessToken;
+      onConnected();
+    }catch(err){
+      showMessage("Connexion refusée ou annulée : " + err.message, "error");
+    }finally{
+      connectBtn.disabled = false;
+    }
   });
 
-  disconnectBtn.addEventListener("click", () => {
-    if(accessToken){
-      google.accounts.oauth2.revoke(accessToken, () => {});
-    }
+  disconnectBtn.addEventListener("click", async () => {
+    try{
+      const account = msalInstance && msalInstance.getActiveAccount();
+      if(account){
+        await msalInstance.logoutPopup({ account });
+      }
+    }catch(err){ /* on nettoie l'UI même si la popup de déconnexion échoue */ }
     accessToken = null;
     allFiles = [];
     filteredFiles = [];
     currentFolders = [];
-    currentKdbxFiles = [];
-    folderStack = [{ id: "root", name: "Mon Drive" }];
+    folderStack = [{ id: "root", name: "OneDrive" }];
     stopPlayback();
     listWrap.innerHTML = "";
     breadcrumb.style.display = "none";
@@ -584,7 +602,7 @@
     configPanel.style.display = "none";
     disconnectBtn.style.display = "inline-block";
     clearMessage();
-    folderStack = [{ id: "root", name: "Mon Drive" }];
+    folderStack = [{ id: "root", name: "OneDrive" }];
     fetchFolder("root");
   }
 
@@ -593,31 +611,35 @@
     showMessage("Chargement du dossier…", "info");
     searchInput.value = "";
     let items = [];
-    let pageToken = "";
     try{
-      do{
-        const url = new URL("https://www.googleapis.com/drive/v3/files");
-        url.searchParams.set("q", `'${folderId}' in parents and trashed = false and (mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'audio/' or name contains '.kdbx')`);
-        url.searchParams.set("fields", "nextPageToken, files(id,name,size,mimeType)");
-        url.searchParams.set("pageSize", "1000");
-        url.searchParams.set("orderBy", "folder,name");
-        if(pageToken) url.searchParams.set("pageToken", pageToken);
+      await getToken(true);
 
-        const res = await fetch(url, { headers: { Authorization: "Bearer " + accessToken }});
+      const basePath = folderId === "root"
+        ? "https://graph.microsoft.com/v1.0/me/drive/root/children"
+        : `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}/children`;
+
+      let nextUrl = (() => {
+        const u = new URL(basePath);
+        u.searchParams.set("$select", "id,name,size,file,folder");
+        u.searchParams.set("$top", "200");
+        return u.toString();
+      })();
+
+      while(nextUrl){
+        const res = await fetch(nextUrl, { headers: { Authorization: "Bearer " + accessToken }});
         if(res.status === 401){
           showMessage("Session expirée, reconnecte-toi.", "error");
           return;
         }
         if(!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
-        items = items.concat(data.files || []);
-        pageToken = data.nextPageToken || "";
-      } while(pageToken);
+        items = items.concat(data.value || []);
+        nextUrl = data["@odata.nextLink"] || null;
+      }
 
       clearMessage();
-      currentFolders = items.filter(f => f.mimeType === "application/vnd.google-apps.folder");
-      currentKdbxFiles = items.filter(f => f.name.toLowerCase().endsWith(".kdbx"));
-      allFiles = items.filter(f => f.mimeType !== "application/vnd.google-apps.folder" && !f.name.toLowerCase().endsWith(".kdbx"));
+      currentFolders = items.filter(f => f.folder);
+      allFiles = items.filter(f => f.file && f.file.mimeType && f.file.mimeType.startsWith("audio/"));
       filteredFiles = allFiles.slice();
 
       breadcrumb.style.display = "flex";
@@ -664,7 +686,7 @@
   });
 
   function renderList(){
-    countText.textContent = `${currentFolders.length} dossier${currentFolders.length>1?"s":""} · ${filteredFiles.length} morceau${filteredFiles.length>1?"x":""}${currentKdbxFiles.length ? " · " + currentKdbxFiles.length + " base" + (currentKdbxFiles.length>1?"s":"") + " KeePass" : ""}`;
+    countText.textContent = `${currentFolders.length} dossier${currentFolders.length>1?"s":""} · ${filteredFiles.length} morceau${filteredFiles.length>1?"x":""}`;
 
     listWrap.innerHTML = "";
 
@@ -686,31 +708,9 @@
       listWrap.appendChild(folderUl);
     }
 
-    if(currentKdbxFiles.length > 0){
-      const kdbxUl = document.createElement("ul");
-      kdbxUl.className = "tracks";
-      kdbxUl.style.borderTop = "1px solid var(--line)";
-      currentKdbxFiles.forEach(f => {
-        const li = document.createElement("li");
-        li.className = "file-row";
-        li.innerHTML = `
-          <span class="folder-icon">🔑</span>
-          <span class="folder-name">${escapeHtml(f.name)}</span>
-          <span class="size">${formatBytes(f.size)}</span>
-          <button class="ghost dl-btn" type="button">Télécharger</button>
-        `;
-        li.querySelector(".dl-btn").addEventListener("click", (e) => {
-          e.stopPropagation();
-          downloadFile(f, e.currentTarget);
-        });
-        kdbxUl.appendChild(li);
-      });
-      listWrap.appendChild(kdbxUl);
-    }
-
     if(filteredFiles.length === 0){
-      if(currentFolders.length === 0 && currentKdbxFiles.length === 0){
-        listWrap.innerHTML = `<div class="empty">Ce dossier est vide (aucun sous-dossier, fichier audio ou base KeePass).</div>`;
+      if(currentFolders.length === 0){
+        listWrap.innerHTML = `<div class="empty">Ce dossier est vide (aucun sous-dossier ni fichier audio).</div>`;
       }
       return;
     }
@@ -732,13 +732,14 @@
     listWrap.appendChild(ul);
   }
 
-  function escapeHtml(str){
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
   // ---- playback ----
+  // On télécharge le contenu du fichier via l'API (endpoint /content)
+  // plutôt que d'utiliser le lien direct @microsoft.graph.downloadUrl,
+  // car celui-ci peut être bloqué par certaines politiques de sécurité
+  // de compte (protection contre le téléchargement, étiquettes de
+  // confidentialité, etc.). Cette approche est un peu plus lente à
+  // démarrer (le fichier est chargé en mémoire avant lecture) mais
+  // fonctionne de façon fiable sur tous les types de comptes.
   async function playFile(index){
     const file = filteredFiles[index];
     if(!file) return;
@@ -749,7 +750,8 @@
     renderList();
 
     try{
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+      await getToken(true);
+      const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`, {
         headers: { Authorization: "Bearer " + accessToken }
       });
       if(res.status === 401){
@@ -776,40 +778,6 @@
     audioEl.removeAttribute("src");
     if(currentObjectUrl){ URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     currentFileId = null;
-  }
-
-  // Télécharge un fichier quelconque (ex: base KeePass .kdbx) et
-  // déclenche l'enregistrement via le navigateur. Contrairement aux
-  // pistes audio, on ne l'ouvre pas dans <audio> : on force juste le
-  // téléchargement du fichier tel quel.
-  async function downloadFile(file, btn){
-    const originalLabel = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "…";
-    try{
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
-        headers: { Authorization: "Bearer " + accessToken }
-      });
-      if(res.status === 401){
-        showMessage("Session expirée, reconnecte-toi.", "error");
-        return;
-      }
-      if(!res.ok) throw new Error("HTTP " + res.status);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }catch(err){
-      showMessage("Impossible de télécharger ce fichier : " + err.message, "error");
-    }finally{
-      btn.disabled = false;
-      btn.textContent = originalLabel;
-    }
   }
 
   function currentIndex(){
