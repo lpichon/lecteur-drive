@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Générateur de mot de passe — style API (sans serveur)</title>
+<title>API Générateur de mot de passe — JSON</title>
 <style>
   body {
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -31,26 +31,18 @@
     text-align: center;
     color: #38bdf8;
   }
-  .subtitle {
-    font-size: 0.75rem;
-    text-align: center;
-    color: #64748b;
-    margin-top: -8px;
-    margin-bottom: 1.2rem;
-  }
   .url-preview {
     background: #0f172a;
     border: 1px solid #334155;
     border-radius: 8px;
     padding: 10px 12px;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: #94a3b8;
     word-break: break-all;
     margin-bottom: 1.2rem;
     font-family: 'Consolas', monospace;
   }
-  .url-preview .label { color: #64748b; display:block; margin-bottom:4px; font-size:0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
-  .url-preview span.val { color: #38bdf8; }
+  .url-preview span { color: #38bdf8; }
 
   .options label {
     display: flex;
@@ -66,6 +58,19 @@
   }
   input[type="range"] { width: 100%; margin-bottom: 1rem; }
 
+  #apiBase {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #f8fafc;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    font-family: 'Consolas', monospace;
+  }
+
   button#generateBtn {
     width: 100%;
     padding: 12px;
@@ -80,6 +85,7 @@
     transition: background 0.2s;
   }
   button#generateBtn:hover { background: #0ea5e9; }
+  button#generateBtn:disabled { background: #475569; cursor: wait; }
 
   .json-box {
     margin-top: 1.5rem;
@@ -92,27 +98,14 @@
     white-space: pre-wrap;
     word-break: break-all;
     min-height: 60px;
-    position: relative;
+    max-height: 260px;
+    overflow-y: auto;
   }
   .json-key { color: #38bdf8; }
   .json-string { color: #a3e635; }
   .json-number { color: #f59e0b; }
   .json-boolean { color: #f472b6; }
   .json-error { color: #ef4444; }
-
-  .copyJsonBtn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: #334155;
-    border: none;
-    border-radius: 6px;
-    color: #f1f5f9;
-    padding: 4px 8px;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-  .copyJsonBtn:hover { background: #475569; }
 
   .status {
     font-size: 0.75rem;
@@ -125,11 +118,13 @@
 <body>
 
 <div class="card">
-  <h1>🔐 Générateur de mot de passe</h1>
-  <div class="subtitle">Simulation d'API — 100% JavaScript, sans serveur</div>
+  <h1>🔐 API Générateur de mot de passe</h1>
+
+  <label style="font-size:0.8rem; color:#94a3b8;">URL de l'API</label>
+  <input type="text" id="apiBase" value="http://localhost:3000/password">
 
   <div class="length-row">
-    <span>Longueur (longueur)</span>
+    <span>Longueur</span>
     <span id="lengthValue">12</span>
   </div>
   <input type="range" id="longueur" min="4" max="32" value="12">
@@ -153,28 +148,16 @@
     </label>
   </div>
 
-  <div class="url-preview">
-    <span class="label">Requête simulée</span>
-    GET <span class="val" id="urlText"></span>
-  </div>
+  <div class="url-preview">GET <span id="urlText"></span></div>
 
-  <button id="generateBtn">🔄 Générer (appel simulé)</button>
+  <button id="generateBtn">🔄 Appeler l'API</button>
 
-  <div class="json-box">
-    <button class="copyJsonBtn" id="copyJsonBtn">📋 Copier</button>
-    <div id="jsonOutput">{ }</div>
-  </div>
+  <div class="json-box" id="jsonOutput">{ }</div>
   <div class="status" id="statusText"></div>
 </div>
 
 <script>
-const CHARSETS = {
-  min: 'abcdefghijklmnopqrstuvwxyz',
-  maj: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  chiffre: '0123456789',
-  symbole: '!@#$%^&*()_+-=[]{}|;:,.<>?'
-};
-
+const apiBaseInput = document.getElementById('apiBase');
 const longueurInput = document.getElementById('longueur');
 const lengthValue = document.getElementById('lengthValue');
 const majCheck = document.getElementById('maj');
@@ -185,9 +168,9 @@ const urlText = document.getElementById('urlText');
 const generateBtn = document.getElementById('generateBtn');
 const jsonOutput = document.getElementById('jsonOutput');
 const statusText = document.getElementById('statusText');
-const copyJsonBtn = document.getElementById('copyJsonBtn');
 
-function buildQueryString() {
+function buildUrl() {
+  const base = apiBaseInput.value.trim() || 'http://localhost:3000/password';
   const params = new URLSearchParams({
     min: minCheck.checked,
     maj: majCheck.checked,
@@ -195,50 +178,14 @@ function buildQueryString() {
     symbole: symboleCheck.checked,
     longueur: longueurInput.value
   });
-  return `/password?${params.toString()}`;
+  return `${base}?${params.toString()}`;
 }
 
 function refreshUrlPreview() {
-  urlText.textContent = buildQueryString();
+  urlText.textContent = buildUrl();
 }
 
-function randomChar(chars) {
-  // Aléatoire cryptographiquement sûr via l'API Web Crypto (native au navigateur)
-  const array = new Uint32Array(1);
-  crypto.getRandomValues(array);
-  return chars[array[0] % chars.length];
-}
-
-// Reproduit exactement la logique de l'API server.js, mais exécutée côté client
-function genererMotDePasse({ min, maj, chiffre, symbole, longueur }) {
-  let pool = '';
-  const garanties = [];
-
-  if (maj) { pool += CHARSETS.maj; garanties.push(randomChar(CHARSETS.maj)); }
-  if (min) { pool += CHARSETS.min; garanties.push(randomChar(CHARSETS.min)); }
-  if (chiffre) { pool += CHARSETS.chiffre; garanties.push(randomChar(CHARSETS.chiffre)); }
-  if (symbole) { pool += CHARSETS.symbole; garanties.push(randomChar(CHARSETS.symbole)); }
-
-  if (pool === '') {
-    return { erreur: "Aucune catégorie de caractère sélectionnée (min, maj, chiffre, symbole)." };
-  }
-
-  let resultat = [...garanties];
-  for (let i = resultat.length; i < longueur; i++) {
-    resultat.push(randomChar(pool));
-  }
-  resultat = resultat.slice(0, longueur);
-
-  for (let i = resultat.length - 1; i > 0; i--) {
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    const j = array[0] % (i + 1);
-    [resultat[i], resultat[j]] = [resultat[j], resultat[i]];
-  }
-
-  return { password: resultat.join('') };
-}
-
+// Coloration syntaxique JSON simple
 function highlightJson(obj) {
   const json = JSON.stringify(obj, null, 2);
   return json
@@ -255,64 +202,47 @@ function highlightJson(obj) {
       });
 }
 
-function appelerApiSimulee() {
+async function appelerApi() {
+  const url = buildUrl();
   refreshUrlPreview();
   generateBtn.disabled = true;
+  generateBtn.textContent = '⏳ Appel en cours...';
+  statusText.textContent = '';
 
-  const t0 = performance.now();
+  try {
+    const t0 = performance.now();
+    const response = await fetch(url);
+    const data = await response.json();
+    const t1 = performance.now();
 
-  const options = {
-    min: minCheck.checked,
-    maj: majCheck.checked,
-    chiffre: chiffreCheck.checked,
-    symbole: symboleCheck.checked,
-    longueur: Math.min(Math.max(parseInt(longueurInput.value, 10) || 12, 4), 128)
-  };
-
-  const resultat = genererMotDePasse(options);
-  const t1 = performance.now();
-
-  if (resultat.erreur) {
-    jsonOutput.innerHTML = highlightJson(resultat);
-    statusText.textContent = `⚠️ 400 Bad Request — ${(t1 - t0).toFixed(2)} ms`;
-  } else {
-    const reponse = {
-      password: resultat.password,
-      longueur: options.longueur,
-      options: {
-        min: options.min,
-        maj: options.maj,
-        chiffre: options.chiffre,
-        symbole: options.symbole
-      }
-    };
-    jsonOutput.innerHTML = highlightJson(reponse);
-    statusText.textContent = `✅ 200 OK — ${(t1 - t0).toFixed(2)} ms`;
+    if (!response.ok) {
+      jsonOutput.innerHTML = highlightJson(data);
+      statusText.textContent = `⚠️ HTTP ${response.status} — ${Math.round(t1 - t0)} ms`;
+    } else {
+      jsonOutput.innerHTML = highlightJson(data);
+      statusText.textContent = `✅ HTTP ${response.status} — ${Math.round(t1 - t0)} ms`;
+    }
+  } catch (err) {
+    jsonOutput.innerHTML = `<span class="json-error">Erreur : impossible de joindre l'API (${err.message}).\nVérifiez que le serveur tourne bien (node server.js) et que l'URL est correcte.</span>`;
+    statusText.textContent = '❌ Échec de la requête';
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = '🔄 Appeler l\'API';
   }
-
-  generateBtn.disabled = false;
 }
-
-copyJsonBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(jsonOutput.textContent).then(() => {
-    copyJsonBtn.textContent = '✅ Copié';
-    setTimeout(() => copyJsonBtn.textContent = '📋 Copier', 1200);
-  });
-});
 
 longueurInput.addEventListener('input', () => {
   lengthValue.textContent = longueurInput.value;
   refreshUrlPreview();
 });
-[majCheck, minCheck, chiffreCheck, symboleCheck].forEach(el => {
+[majCheck, minCheck, chiffreCheck, symboleCheck, apiBaseInput].forEach(el => {
+  el.addEventListener('input', refreshUrlPreview);
   el.addEventListener('change', refreshUrlPreview);
 });
 
-generateBtn.addEventListener('click', appelerApiSimulee);
+generateBtn.addEventListener('click', appelerApi);
 
-// Génération initiale
 refreshUrlPreview();
-appelerApiSimulee();
 </script>
 
 </body>
