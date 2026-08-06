@@ -464,6 +464,7 @@
   let allFiles = [];
   let filteredFiles = [];
   let currentFileId = null;
+  let currentObjectUrl = null;
   let currentFolders = [];
   let folderStack = [{ id: "root", name: "OneDrive" }];
 
@@ -619,7 +620,7 @@
 
       let nextUrl = (() => {
         const u = new URL(basePath);
-        u.searchParams.set("$select", "id,name,size,file,folder,@microsoft.graph.downloadUrl,@content.downloadUrl");
+        u.searchParams.set("$select", "id,name,size,file,folder");
         u.searchParams.set("$top", "200");
         return u.toString();
       })();
@@ -732,12 +733,13 @@
   }
 
   // ---- playback ----
-  // OneDrive fournit une URL de téléchargement temporaire et déjà
-  // authentifiée (@microsoft.graph.downloadUrl) : on peut la mettre
-  // directement dans <audio src>, sans la télécharger nous-mêmes.
-  // Cela permet la lecture en flux et le déplacement dans le morceau
-  // dès le début, contrairement à l'approche "blob" utilisée pour
-  // Google Drive.
+  // On télécharge le contenu du fichier via l'API (endpoint /content)
+  // plutôt que d'utiliser le lien direct @microsoft.graph.downloadUrl,
+  // car celui-ci peut être bloqué par certaines politiques de sécurité
+  // de compte (protection contre le téléchargement, étiquettes de
+  // confidentialité, etc.). Cette approche est un peu plus lente à
+  // démarrer (le fichier est chargé en mémoire avant lecture) mais
+  // fonctionne de façon fiable sur tous les types de comptes.
   async function playFile(index){
     const file = filteredFiles[index];
     if(!file) return;
@@ -747,36 +749,22 @@
     nowSub.textContent = "Chargement…";
     renderList();
 
-    let downloadUrl = file["@microsoft.graph.downloadUrl"] || file["@content.downloadUrl"];
-
-    if(!downloadUrl){
-      // Le lien n'était pas présent dans le listage du dossier (ça
-      // arrive sur certains comptes) : on le redemande spécifiquement
-      // pour ce fichier.
-      try{
-        await getToken(true);
-        const url = new URL(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}`);
-        url.searchParams.set("$select", "id,@microsoft.graph.downloadUrl,@content.downloadUrl");
-        const res = await fetch(url, { headers: { Authorization: "Bearer " + accessToken }});
-        if(!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        downloadUrl = data["@microsoft.graph.downloadUrl"] || data["@content.downloadUrl"];
-        file["@microsoft.graph.downloadUrl"] = downloadUrl;
-      }catch(err){
-        nowSub.textContent = "erreur de lecture";
-        showMessage("Impossible de récupérer le lien de lecture : " + err.message, "error");
+    try{
+      await getToken(true);
+      const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`, {
+        headers: { Authorization: "Bearer " + accessToken }
+      });
+      if(res.status === 401){
+        showMessage("Session expirée, reconnecte-toi pour continuer d'écouter.", "error");
+        nowSub.textContent = "session expirée";
         return;
       }
-    }
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const blob = await res.blob();
 
-    if(!downloadUrl){
-      nowSub.textContent = "erreur de lecture";
-      showMessage("Ce fichier n'a fourni aucun lien de lecture, même après une demande directe. Vérifie les permissions de l'appli (Files.Read) ou les politiques de sécurité du compte.", "error");
-      return;
-    }
-
-    audioEl.src = downloadUrl;
-    try{
+      if(currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+      currentObjectUrl = URL.createObjectURL(blob);
+      audioEl.src = currentObjectUrl;
       await audioEl.play();
       nowSub.textContent = formatBytes(file.size);
     }catch(err){
@@ -788,6 +776,7 @@
   function stopPlayback(){
     audioEl.pause();
     audioEl.removeAttribute("src");
+    if(currentObjectUrl){ URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     currentFileId = null;
   }
 
@@ -806,14 +795,6 @@
   audioEl.addEventListener("ended", () => {
     const i = currentIndex();
     if(i >= 0 && i < filteredFiles.length - 1) playFile(i+1);
-  });
-
-  // Si le lien temporaire a expiré (au bout d'environ une heure), on
-  // recharge le dossier courant pour obtenir un lien frais.
-  audioEl.addEventListener("error", () => {
-    if(!currentFileId) return;
-    showMessage("Le lien de lecture a expiré, rechargement du dossier…", "info");
-    fetchFolder(folderStack[folderStack.length - 1].id);
   });
 
   playBtn.addEventListener("click", () => {
