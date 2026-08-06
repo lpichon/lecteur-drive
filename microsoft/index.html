@@ -34,7 +34,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lecteur — OneDrive tmp</title>
+<title>Lecteur — OneDrive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -741,20 +741,44 @@
   async function playFile(index){
     const file = filteredFiles[index];
     if(!file) return;
-    const downloadUrl = file["@microsoft.graph.downloadUrl"] || file["@content.downloadUrl"];
-    if(!downloadUrl){
-      showMessage("Ce fichier n'a pas fourni de lien de lecture, réessaie.", "error");
-      return;
-    }
     currentFileId = file.id;
     playerBar.style.display = "flex";
     nowTitle.textContent = file.name;
-    nowSub.textContent = formatBytes(file.size);
+    nowSub.textContent = "Chargement…";
     renderList();
+
+    let downloadUrl = file["@microsoft.graph.downloadUrl"] || file["@content.downloadUrl"];
+
+    if(!downloadUrl){
+      // Le lien n'était pas présent dans le listage du dossier (ça
+      // arrive sur certains comptes) : on le redemande spécifiquement
+      // pour ce fichier.
+      try{
+        await getToken(true);
+        const url = new URL(`https://graph.microsoft.com/v1.0/me/drive/items/${file.id}`);
+        url.searchParams.set("$select", "id,@microsoft.graph.downloadUrl,@content.downloadUrl");
+        const res = await fetch(url, { headers: { Authorization: "Bearer " + accessToken }});
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        downloadUrl = data["@microsoft.graph.downloadUrl"] || data["@content.downloadUrl"];
+        file["@microsoft.graph.downloadUrl"] = downloadUrl;
+      }catch(err){
+        nowSub.textContent = "erreur de lecture";
+        showMessage("Impossible de récupérer le lien de lecture : " + err.message, "error");
+        return;
+      }
+    }
+
+    if(!downloadUrl){
+      nowSub.textContent = "erreur de lecture";
+      showMessage("Ce fichier n'a fourni aucun lien de lecture, même après une demande directe. Vérifie les permissions de l'appli (Files.Read) ou les politiques de sécurité du compte.", "error");
+      return;
+    }
 
     audioEl.src = downloadUrl;
     try{
       await audioEl.play();
+      nowSub.textContent = formatBytes(file.size);
     }catch(err){
       nowSub.textContent = "erreur de lecture";
       showMessage("Impossible de lire ce fichier : " + err.message, "error");
