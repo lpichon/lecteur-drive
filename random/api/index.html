@@ -1,256 +1,172 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Générateur de mot de passe</title>
-<style>
-  body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(135deg, #000000, #0f172a);
-    color: #f1f5f9;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
-  .card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 16px;
-    padding: 2rem;
-    width: 360px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  }
-  h1 {
-    font-size: 1.2rem;
-    margin-top: 0;
-    text-align: center;
-    color: #38bdf8;
-  }
-  .output {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 1.5rem;
-  }
-  #password {
-    flex: 1;
-    padding: 12px;
-    font-size: 1.1rem;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    color: #f8fafc;
-    letter-spacing: 1px;
-    text-align: center;
-  }
-  #copyBtn {
-    background: #334155;
-    border: none;
-    border-radius: 8px;
-    color: #f1f5f9;
-    padding: 0 14px;
-    cursor: pointer;
-    font-size: 1.1rem;
-  }
-  #copyBtn:hover { background: #475569; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Mot de Passe JSON</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-  .options label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    font-size: 0.95rem;
-  }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-  .length-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
+        .container {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
 
-  input[type="range"] { width: 100%; margin-bottom: 1rem; }
+        h1 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+            color: #38bdf8;
+        }
 
-  button#generateBtn {
-    width: 100%;
-    padding: 12px;
-    background: #38bdf8;
-    border: none;
-    border-radius: 8px;
-    color: #0f172a;
-    font-weight: bold;
-    font-size: 1rem;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: background 0.2s;
-  }
-  button#generateBtn:hover { background: #0ea5e9; }
+        .subtitle {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
 
-  .strength {
-    margin-top: 12px;
-    height: 6px;
-    border-radius: 4px;
-    background: #334155;
-    overflow: hidden;
-  }
-  .strength-bar {
-    height: 100%;
-    width: 0%;
-    transition: width 0.3s, background 0.3s;
-  }
-  .strength-label {
-    font-size: 0.8rem;
-    text-align: right;
-    margin-top: 4px;
-    color: #94a3b8;
-  }
-</style>
+        pre {
+            background-color: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            color: #4ade80;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .examples {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #334155;
+        }
+
+        .examples h2 {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .examples a {
+            display: inline-block;
+            color: #38bdf8;
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            background: #0f172a;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+        }
+
+        .examples a:hover {
+            border-color: #38bdf8;
+        }
+    </style>
 </head>
 <body>
 
-<div class="card">
-  <h1>🔐</h1>
+    <div class="container">
+        <h1>Résultat JSON</h1>
+        <p class="subtitle">Paramètres GET détectés depuis l'URL</p>
+        
+        <pre id="json-output">Génération en cours...</pre>
 
-  <div class="output">
-    <input type="text" id="password" readonly value="">
-    <button id="copyBtn" title="Copier">📋</button>
-  </div>
+        <div class="examples">
+            <h2>Tester avec différents paramètres GET :</h2>
+            <a href="?min=true&maj=true&longeur=12">?min=true&maj=true&longeur=12</a><br>
+            <a href="?min=true&maj=true&chiffre=true&longeur=16">?min=true&maj=true&chiffre=true&longeur=16</a><br>
+            <a href="?maj=true&longeur=8">?maj=true&longeur=8</a>
+        </div>
+    </div>
 
-  <div class="length-row">
-    <span>Longueur</span>
-    <span id="lengthValue">20</span>
-  </div>
-  <input type="range" id="length" min="4" max="32" value="20">
+    <script>
+        function generatePassword() {
+            // Lecture des paramètres GET
+            const urlParams = new URLSearchParams(window.location.search);
 
-  <div class="options">
-    <label>
-      Majuscules (A-Z)
-      <input type="checkbox" id="upper" checked>
-    </label>
-    <label>
-      Minuscules (a-z)
-      <input type="checkbox" id="lower" checked>
-    </label>
-    <label>
-      Chiffres (0-9)
-      <input type="checkbox" id="digits" checked>
-    </label>
-    <label>
-      Symboles (!@#...)
-      <input type="checkbox" id="symbols">
-    </label>
-  </div>
+            // Parsing des options (supporte 'longeur' et 'longueur')
+            const lengthParam = urlParams.get('longeur') || urlParams.get('longueur');
+            const length = parseInt(lengthParam, 10) || 12;
+            
+            const useMin = urlParams.get('min') === 'true';
+            const useMaj = urlParams.get('maj') === 'true';
+            const useChiffre = urlParams.get('chiffre') === 'true' || urlParams.get('num') === 'true';
+            const useSpecial = urlParams.get('special') === 'true';
 
-  <button id="generateBtn">🔄 Générer un mot de passe</button>
+            // Jeux de caractères
+            const charSets = {
+                lowercase: 'abcdefghijklmnopqrstuvwxyz',
+                uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                numbers: '0123456789',
+                special: '!@#$%^&*()_+-=[]{}|;:,.<>?'
+            };
 
-  <div class="strength">
-    <div class="strength-bar" id="strengthBar"></div>
-  </div>
-  <div class="strength-label" id="strengthLabel"></div>
-</div>
+            let availableChars = '';
+            if (useMin) availableChars += charSets.lowercase;
+            if (useMaj) availableChars += charSets.uppercase;
+            if (useChiffre) availableChars += charSets.numbers;
+            if (useSpecial) availableChars += charSets.special;
 
-<script>
-const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const lowerChars = "abcdefghijklmnopqrstuvwxyz";
-const digitChars = "0123456789";
-const symbolChars = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+            let password = '';
+            let error = null;
 
-const lengthInput = document.getElementById('length');
-const lengthValue = document.getElementById('lengthValue');
-const upperCheck = document.getElementById('upper');
-const lowerCheck = document.getElementById('lower');
-const digitsCheck = document.getElementById('digits');
-const symbolsCheck = document.getElementById('symbols');
-const passwordField = document.getElementById('password');
-const generateBtn = document.getElementById('generateBtn');
-const copyBtn = document.getElementById('copyBtn');
-const strengthBar = document.getElementById('strengthBar');
-const strengthLabel = document.getElementById('strengthLabel');
+            // Vérification si au moins une option est activée
+            if (availableChars.length === 0) {
+                error = "Aucun jeu de caractères sélectionné. Spécifiez au moins un paramètre valide (ex: min=true, maj=true).";
+            } else {
+                // Génération sécurisée du mot de passe
+                const array = new Uint32Array(length);
+                window.crypto.getRandomValues(array);
+                for (let i = 0; i < length; i++) {
+                    password += availableChars[array[i] % availableChars.length];
+                }
+            }
 
-lengthInput.addEventListener('input', () => {
-  lengthValue.textContent = lengthInput.value;
-  generatePassword();
-});
+            // Structure de la réponse JSON
+            const responseData = error ? {
+                status: "error",
+                message: error
+            } : {
+                status: "success",
+                password: password,
+                length: length,
+                options: {
+                    min: useMin,
+                    maj: useMaj,
+                    chiffre: useChiffre,
+                    special: useSpecial
+                }
+            };
 
-[upperCheck, lowerCheck, digitsCheck, symbolsCheck].forEach(cb => {
-  cb.addEventListener('change', generatePassword);
-});
+            // Affichage formaté en JSON
+            document.getElementById('json-output').textContent = JSON.stringify(responseData, null, 2);
+        }
 
-generateBtn.addEventListener('click', generatePassword);
-
-copyBtn.addEventListener('click', () => {
-  if (!passwordField.value) return;
-  navigator.clipboard.writeText(passwordField.value).then(() => {
-    copyBtn.textContent = "✅";
-    setTimeout(() => copyBtn.textContent = "📋", 1200);
-  });
-});
-
-function generatePassword() {
-  const length = parseInt(lengthInput.value, 10);
-  let charPool = "";
-  let guaranteed = [];
-
-  if (upperCheck.checked) { charPool += upperChars; guaranteed.push(randomChar(upperChars)); }
-  if (lowerCheck.checked) { charPool += lowerChars; guaranteed.push(randomChar(lowerChars)); }
-  if (digitsCheck.checked) { charPool += digitChars; guaranteed.push(randomChar(digitChars)); }
-  if (symbolsCheck.checked) { charPool += symbolChars; guaranteed.push(randomChar(symbolChars)); }
-
-  if (charPool === "") {
-    passwordField.value = "Sélectionnez au moins une option";
-    updateStrength(0);
-    return;
-  }
-
-  let result = [...guaranteed];
-  for (let i = result.length; i < length; i++) {
-    result.push(randomChar(charPool));
-  }
-
-  // Mélange (Fisher-Yates)
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-
-  // Si la longueur demandée est inférieure au nombre de catégories garanties
-  result = result.slice(0, length);
-
-  const password = result.join("");
-  passwordField.value = password;
-  updateStrength(computeStrength(password, charPool.length));
-}
-
-function randomChar(chars) {
-  return chars[Math.floor(Math.random() * chars.length)];
-}
-
-function computeStrength(password, poolSize) {
-  // Estimation approximative basée sur l'entropie
-  const entropy = password.length * Math.log2(poolSize || 1);
-  if (entropy < 40) return 1;
-  if (entropy < 60) return 2;
-  if (entropy < 80) return 3;
-  return 4;
-}
-
-function updateStrength(level) {
-  const configs = [
-    { width: "0%", color: "#334155", label: "" },
-    { width: "25%", color: "#ef4444", label: "Faible" },
-    { width: "50%", color: "#f59e0b", label: "Moyen" },
-    { width: "75%", color: "#38bdf8", label: "Bon" },
-    { width: "100%", color: "#22c55e", label: "Excellent" },
-  ];
-  const c = configs[level];
-  strengthBar.style.width = c.width;
-  strengthBar.style.background = c.color;
-  strengthLabel.textContent = c.label;
-}
-
-// Génération initiale
-generatePassword();
-</script>
-
+        // Exécution au chargement de la page
+        generatePassword();
+    </script>
 </body>
 </html>
