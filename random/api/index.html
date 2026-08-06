@@ -2,127 +2,26 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur de Mot de Passe JSON</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 24px;
-            width: 100%;
-            max-width: 650px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-
-        h1 {
-            font-size: 1.25rem;
-            margin-bottom: 12px;
-            color: #38bdf8;
-        }
-
-        .subtitle {
-            font-size: 0.875rem;
-            color: #94a3b8;
-            margin-bottom: 20px;
-        }
-
-        pre {
-            background-color: #020617;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            padding: 16px;
-            overflow-x: auto;
-            color: #4ade80;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-
-        .examples {
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid #334155;
-        }
-
-        .examples h2 {
-            font-size: 0.9rem;
-            color: #94a3b8;
-            margin-bottom: 10px;
-        }
-
-        .examples a {
-            display: inline-block;
-            color: #38bdf8;
-            text-decoration: none;
-            font-size: 0.85rem;
-            margin-bottom: 6px;
-            background: #0f172a;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid #334155;
-        }
-
-        .examples a:hover {
-            border-color: #38bdf8;
-        }
-    </style>
+    <title>JSON Password API</title>
 </head>
 <body>
-
-    <div class="container">
-        <h1>Résultat JSON</h1>
-        <p class="subtitle">Réponse générée à partir des paramètres URL (ou des valeurs par défaut)</p>
-        
-        <pre id="json-output">Génération en cours...</pre>
-
-        <div class="examples">
-            <h2>Tester les URL :</h2>
-            <a href="?">URL sans paramètres (applique les valeurs par défaut : 20 car., min, maj, chiffre)</a><br>
-            <a href="?longeur=12">?longeur=12 (override la longueur à 12)</a><br>
-            <a href="?chiffre=false">?chiffre=false (désactive les chiffres)</a>
-        </div>
-    </div>
-
     <script>
         function generatePassword() {
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Fonction utilitaire pour lire un booléen avec une valeur par défaut
             const getBoolParam = (paramName, defaultValue) => {
                 if (!urlParams.has(paramName)) return defaultValue;
                 return urlParams.get(paramName) === 'true';
             };
 
-            // 1. Valeur par défaut de la longueur : 20
             const lengthParam = urlParams.get('longeur') || urlParams.get('longueur');
             const length = parseInt(lengthParam, 10) || 20;
 
-            // 2. Valeurs par défaut : min=true, maj=true, chiffre=true
             const useMin = getBoolParam('min', true);
             const useMaj = getBoolParam('maj', true);
             const useChiffre = getBoolParam('chiffre', true);
             const useSpecial = getBoolParam('special', false);
 
-            // Jeux de caractères
             const charSets = {
                 lowercase: 'abcdefghijklmnopqrstuvwxyz',
                 uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -140,7 +39,7 @@
             let error = null;
 
             if (availableChars.length === 0) {
-                error = "Aucun jeu de caractères disponible.";
+                error = "Aucun jeu de caractères sélectionné.";
             } else {
                 const array = new Uint32Array(length);
                 window.crypto.getRandomValues(array);
@@ -149,7 +48,6 @@
                 }
             }
 
-            // Réponse JSON
             const responseData = error ? {
                 status: "error",
                 message: error
@@ -165,7 +63,8 @@
                 }
             };
 
-            document.getElementById('json-output').textContent = JSON.stringify(responseData, null, 2);
+            // Écrit uniquement le texte JSON brut dans la page
+            document.body.innerHTML = '<pre>' + JSON.stringify(responseData, null, 2) + '</pre>';
         }
 
         generatePassword();
