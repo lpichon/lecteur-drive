@@ -400,15 +400,14 @@
 </header>
 
 <main>
-  <section class="config" id="configPanel">
-    <h2>Configuration</h2>
-    <p>639533356550-bj6lb6k5rsbsbf1kj2kpfln8v0npdpfe.apps.googleusercontent.com</p>
-    <div class="config-row">
-      <input type="text" id="clientIdInput" placeholder="xxxxxxxx-xxxx.apps.googleusercontent.com">
-      <button id="connectBtn">Se connecter</button>
-      <button class="ghost" id="disconnectBtn" style="display:none;">Se déconnecter</button>
-    </div>
-  </section>
+<section class="config" id="configPanel">
+  <h2>Configuration</h2>
+  <div class="config-row">
+    <input type="hidden" id="clientIdInput" value="639533356550-bj6lb6k5rsbsbf1kj2kpfln8v0npdpfe.apps.googleusercontent.com">
+    <a href="#" id="connectBtn">Se connecter</a>
+    <button class="ghost" id="disconnectBtn" style="display:none;">Se déconnecter</button>
+  </div>
+</section>
 
   <div id="messages"></div>
 
